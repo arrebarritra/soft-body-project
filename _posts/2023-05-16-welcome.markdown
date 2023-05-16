@@ -1,0 +1,8 @@
+---
+layout: post
+title:  "Welcome!"
+date:   2023-05-16
+categories: jekyll update
+---
+
+Welcome to the blog for my soft body simulation project for DH2323 Computer Graphics and Interaction. I have now set up the blog with Jekyll and GitHub pages. I have started thinking about how to design the soft body system so it works with the compute shader. In the next post I will go through the basic workings of the system, and hopefully have some progress to show!
