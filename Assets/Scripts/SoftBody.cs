@@ -48,7 +48,7 @@ public class SoftBody : MonoBehaviour
     void Start()
     {
         // Initialise soft body data from tetrahedral mesh
-        InitializeDataFromMesh();
+        InitializeDataFromTetMesh();
 
         // Create buffers
         particleBuffer = new ComputeBuffer(nParticles, 3 * 3 * sizeof(float));
