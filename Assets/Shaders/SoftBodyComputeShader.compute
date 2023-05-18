@@ -1,0 +1,48 @@
+
+struct Particle
+{
+	float3 x, xm1, v;
+};
+
+struct LengthConstraint
+{
+	uint p1, p2;
+	float l0;
+};
+
+struct VolumeConstraint
+{
+	uint p1, p2, p3, p4;
+	float V0t6;
+};
+
+uniform float dt;
+
+uniform RWStructuredBuffer<Particle> particles;
+uniform StructuredBuffer<LengthConstraint> lc;
+uniform StructuredBuffer<VolumeConstraint> vc;
+
+
+#pragma kernel preSolve
+[numthreads(128, 1, 1)]
+void preSolve(uint3 id : SV_DispatchThreadID)
+{
+}
+
+#pragma kernel solveEdges
+[numthreads(128, 1, 1)]
+void solveEdges(uint3 id : SV_DispatchThreadID)
+{
+}
+
+#pragma kernel solveVolumes
+[numthreads(128, 1, 1)]
+void solveVolumes(uint3 id : SV_DispatchThreadID)
+{
+}
+
+#pragma kernel postSolve
+[numthreads(128, 1, 1)]
+void postSolve(uint3 id : SV_DispatchThreadID)
+{
+}
