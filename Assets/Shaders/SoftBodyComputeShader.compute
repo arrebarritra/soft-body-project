@@ -2,6 +2,7 @@
 struct Particle
 {
 	float3 x, xm1, v;
+	float invm;
 };
 
 struct LengthConstraint
@@ -16,6 +17,10 @@ struct VolumeConstraint
 	float V0t6;
 };
 
+uniform int nParticles;
+uniform int nEdges;
+uniform int nTets;
+uniform int nTriangles;
 uniform float dt;
 
 uniform RWStructuredBuffer<Particle> particles;
@@ -27,6 +32,10 @@ uniform StructuredBuffer<VolumeConstraint> vc;
 [numthreads(128, 1, 1)]
 void preSolve(uint3 id : SV_DispatchThreadID)
 {
+	if (id.x < nParticles)
+	{
+		particles[id.x].x.y += 0.001f;
+	}
 }
 
 #pragma kernel solveEdges
