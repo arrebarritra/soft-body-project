@@ -24,13 +24,15 @@ struct VolumeConstraint
 public class SoftBody : MonoBehaviour
 {
     public static int nSubSteps = 10;
+    public float edgeCompliance = 1;
+    public float volumeCompliance = 0;
     public ComputeShader shader;
 
     // Kernel indices
-    public static int kiPreSolve;
-    public static int kiSolveEdges;
-    public static int kiSolveVolumes;
-    public static int kiPostSolve;
+    static int kiPreSolve;
+    static int kiSolveEdges;
+    static int kiSolveVolumes;
+    static int kiPostSolve;
 
     int nParticles;
     int nEdges;
@@ -57,7 +59,9 @@ public class SoftBody : MonoBehaviour
         // Initialise soft body data from tetrahedral mesh
         InitializeDataFromTetMesh();
 
-        // Set int parameters
+        // Set sim parameters
+        shader.SetFloat("edgeCompliance", edgeCompliance);
+        shader.SetFloat("volumeCompliance", volumeCompliance);
         shader.SetInt("nParticles", nParticles);
         shader.SetInt("nEdges", nEdges);
         shader.SetInt("nTets", nTets);
@@ -75,24 +79,26 @@ public class SoftBody : MonoBehaviour
 
         // Bind buffers
         kiPreSolve = shader.FindKernel("preSolve");
-        shader.SetBuffer(kiPreSolve, "particles", particleBuffer);
+        shader.SetBuffer(kiPreSolve, "ps", particleBuffer);
 
         kiSolveEdges = shader.FindKernel("solveEdges");
-        shader.SetBuffer(kiSolveEdges, "particles", particleBuffer);
+        shader.SetBuffer(kiSolveEdges, "ps", particleBuffer);
         shader.SetBuffer(kiSolveEdges, "lc", lcBuffer);
 
         kiSolveVolumes = shader.FindKernel("solveVolumes");
-        shader.SetBuffer(kiSolveVolumes, "particles", particleBuffer);
+        shader.SetBuffer(kiSolveVolumes, "ps", particleBuffer);
         shader.SetBuffer(kiSolveVolumes, "vc", vcBuffer);
 
         kiPostSolve = shader.FindKernel("postSolve");
-        shader.SetBuffer(kiPostSolve, "particles", particleBuffer);
+        shader.SetBuffer(kiPostSolve, "ps", particleBuffer);
     }
 
     void Update()
     {
         float sdt = Time.deltaTime / nSubSteps;
         shader.SetFloat("dt", sdt);
+        shader.SetFloat("edgeCompliance", edgeCompliance);
+        shader.SetFloat("volumeCompliance", volumeCompliance);
 
         for (int i = 0; i < nSubSteps; i++)
         {

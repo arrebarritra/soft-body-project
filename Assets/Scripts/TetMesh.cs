@@ -14,10 +14,6 @@ public class TetMesh
     public int[] edgeIndices { get; private set; }
     public int[] surfaceTriangleIndices { get; private set; }
 
-    public TetMesh()
-    {
-    }
-
     public void LoadFromFile(string file)
     {
         using(TextReader reader = File.OpenText(file))

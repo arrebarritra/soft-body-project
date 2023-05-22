@@ -203,6 +203,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f8b3d9e9cc54cdf49adb5bd527b33ce9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  edgeCompliance: 100
+  volumeCompliance: 0
   shader: {fileID: 7200000, guid: 8ea84e6ebc977b346a75269ac5593761, type: 3}
 --- !u!4 &414298375
 Transform:
