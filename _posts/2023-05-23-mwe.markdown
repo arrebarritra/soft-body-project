@@ -1,0 +1,20 @@
+---
+layout: post
+title:  "MWE"
+date:   2023-05-23
+categories: jekyll update
+---
+
+I have finally managed to put together a semi-working simulation of the soft body. Here it is in action!
+
+![Wiggling bunny](/soft-body-project/img/wiggling_bunny.gif)
+
+In the last post I mentioned that a difficulty will be to parallelise the solving of constraints, as particles may be part of multiple constraints. I found a very interesting (maybe in hindsight obvious) solution to this in a [paper by Fratarcangeli and Pellacini](https://ep.liu.se/ecp/106/004/ecp14106004.pdf). It involves clustering the constraints so that the clusters do not contain constraints with overlapping particles using vertex coloring. I quite enjoyed implementing it and applying some of my theoretical computer science knowledge. The clustering is done at initialisation so only has to be computed once. This is then sent to the compute shader so it can choose the correct cluster in each dispatch.
+
+As hinted in the start of the post, the system still has some probems, which we can see below:
+
+![Bouncing bunny](/soft-body-project/img/bouncing_bunny.gif)
+
+Clearly, energy is not conserved and the bunny bounces too much. I have played around with parameters and it does not solve the problem. Additionally, some parameters seem to break the simulation, something which does not happen with [Müllers demo](https://matthias-research.github.io/pages/tenMinutePhysics/10-softBodies.html).
+
+Given I'm already late with handing in the project I also need to think about finishing off and starting on writing the report. However, I feel in addition to fixing the simulation some interactivity is sorely missing as the demo is not very interesting otherwise. I would like to add some form of collisions for this to have rigid bodies interact with the soft body, but that might be too large in scope. I will do some research into this. If it's not possible, I might go for a grabber to move around the soft body with the mouse.
