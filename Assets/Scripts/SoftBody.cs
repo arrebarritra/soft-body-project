@@ -20,7 +20,7 @@ struct LengthConstraint
 struct VolumeConstraint
 {
     public int p1, p2, p3, p4;
-    public float V0t6;
+    public float V0;
 }
 
 
@@ -29,6 +29,7 @@ public class SoftBody : MonoBehaviour
     public static int nSubSteps = 10;
     public float edgeCompliance = 1;
     public float volumeCompliance = 0;
+    public float gravity = 9.81f;
     public ComputeShader shader;
 
     // Kernel indices
@@ -79,6 +80,7 @@ public class SoftBody : MonoBehaviour
         // Set sim parameters
         shader.SetFloat("edgeCompliance", edgeCompliance);
         shader.SetFloat("volumeCompliance", volumeCompliance);
+        shader.SetFloats("gravity", new float[] { 0, -gravity, 0 });
         shader.SetInt("nParticles", nParticles);
         shader.SetInt("nEdges", nEdges);
         shader.SetInt("nTets", nTets);
@@ -124,9 +126,9 @@ public class SoftBody : MonoBehaviour
         shader.SetBuffer(kiPostSolve, "ps", particleBuffer);
     }
 
-    void Update()
+    void FixedUpdate()
     {
-        float sdt = Time.deltaTime / nSubSteps;
+        float sdt = Time.fixedDeltaTime / nSubSteps;
         shader.SetFloat("dt", sdt);
         shader.SetFloat("edgeCompliance", edgeCompliance);
         shader.SetFloat("volumeCompliance", volumeCompliance);
@@ -139,12 +141,12 @@ public class SoftBody : MonoBehaviour
             for (int j = 0; j < nEdgeClusters; j++)
             {
                 shader.SetInt("currentEdgeCluster", j);
-                shader.Dispatch(kiSolveEdges, (edgesInCluster[j] + 64) / 64, 1, 1);
+                shader.Dispatch(kiSolveEdges, (edgesInCluster[j] + 63) / 64, 1, 1);
             }
             for (int j = 0; j < nTetClusters; j++)
             {
                 shader.SetInt("currentTetCluster", j);
-                shader.Dispatch(kiSolveVolumes, (tetsInCluster[j] + 64) / 64, 1, 1);
+                shader.Dispatch(kiSolveVolumes, (tetsInCluster[j] + 63) / 64, 1, 1);
             }
 
             shader.Dispatch(kiPostSolve, (nParticles + 127) / 128, 1, 1);
@@ -240,14 +242,14 @@ public class SoftBody : MonoBehaviour
             temp[1] = e3 - e1;
             temp[2] = e4 - e1;
             temp[3] = Vector3.Cross(temp[0], temp[1]);
-            vc[i].V0t6 = Vector3.Dot(temp[3], temp[2]);
+            vc[i].V0 = Vector3.Dot(temp[3], temp[2]) / 6;
 
             // Add inv masses to particles
-            float pInvMass = vc[i].V0t6 > 0.0f ? 1.0f / (vc[i].V0t6 / (6.0f * 4.0f)) : 0.0f;
-            particles[vc[i].p1].invm = pInvMass;
-            particles[vc[i].p2].invm = pInvMass;
-            particles[vc[i].p3].invm = pInvMass;
-            particles[vc[i].p4].invm = pInvMass;
+            float pInvMass = vc[i].V0 > 0.0f ? 1.0f / (vc[i].V0 / 4.0f) : 0.0f;
+            particles[vc[i].p1].invm += pInvMass;
+            particles[vc[i].p2].invm += pInvMass;
+            particles[vc[i].p3].invm += pInvMass;
+            particles[vc[i].p4].invm += pInvMass;
         }
 
         CreateTetClusters();
@@ -255,19 +257,21 @@ public class SoftBody : MonoBehaviour
 
     void InitializeSurfaceMesh(in TetMesh tm)
     {
-        mesh = new Mesh();
-        mesh.name = "Soft Body Mesh";
-        mf = GetComponent<MeshFilter>();
+        nTriangles = tm.nTriangles;
         vertices = new Vector3[nParticles];
-
-        mesh.vertices = new Vector3[nParticles];
         for (int i = 0; i < nParticles; i++)
         {
-            mesh.vertices[i] = particles[i].x;
+            vertices[i] = particles[i].x;
         }
 
-        nTriangles = tm.nTriangles;
-        mesh.triangles = tm.surfaceTriangleIndices;
+        mesh = new Mesh
+        {
+            name = "Soft Body Mesh",
+            vertices = vertices,
+            triangles = tm.surfaceTriangleIndices
+        };
+
+        mf = GetComponent<MeshFilter>();
         mf.mesh = mesh;
     }
 
@@ -297,7 +301,7 @@ public class SoftBody : MonoBehaviour
             for (int j = i + 1; j < nEdges; j++)
             {
                 int[] c1 = { lc[i].p1, lc[i].p2 };
-                int[] c2 = { lc[j].p1, lc[j].p2};
+                int[] c2 = { lc[j].p1, lc[j].p2 };
                 if (c1.Intersect(c2).Any())
                 {
                     edgeGraph.AddEdge(new UndirectedEdge<int>(i, j));

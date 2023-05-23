@@ -14,13 +14,14 @@ struct LengthConstraint
 struct VolumeConstraint
 {
     int p1, p2, p3, p4;
-    float V0t6;
+    float V0;
 };
 
 
 uniform float dt;
 uniform float edgeCompliance;
 uniform float volumeCompliance;
+uniform float3 gravity;
 
 uniform int nParticles;
 uniform int nEdges;
@@ -41,15 +42,14 @@ uniform RWStructuredBuffer<Particle> ps;
 uniform StructuredBuffer<LengthConstraint> lc;
 uniform StructuredBuffer<VolumeConstraint> vc;
 
-
-
 #pragma kernel preSolve
 [numthreads(128, 1, 1)]
 void preSolve(uint3 id : SV_DispatchThreadID)
 {
-    if (id.x < nParticles && ps[id.x].invm != 0.0f)
+    if (id.x < (uint) nParticles && ps[id.x].invm != 0.0f)
     {
-        ps[id.x].v += float3(0, -10, 0) * dt;
+        
+        ps[id.x].v += gravity * dt;
         ps[id.x].xm1 = ps[id.x].x;
         ps[id.x].x += ps[id.x].v * dt;
 		
@@ -71,23 +71,17 @@ void solveEdges(uint3 id : SV_DispatchThreadID)
         firstEdge += edgesInCluster[i];
     }
     
-    if (id.x < edgesInCluster[currentEdgeCluster])
+    if (id.x < (uint) edgesInCluster[currentEdgeCluster])
     {
-        int edge = edgeClusters[firstEdge + id.x];
         float alpha = edgeCompliance / dt / dt;
+        
+        int edge = edgeClusters[firstEdge + id.x];
         LengthConstraint l = lc[edge];
         
-        if (ps[l.p1].invm + ps[l.p2].invm == 0.0f)
-        {
-            return;
-        }
-        float3 len = ps[l.p2].x - ps[l.p1].x;
-        if (length(len) == 0.0f)
-        {
-            return;
-        }
-        float3 grad = normalize(len);
-        float C = length(len) - l.l0;
+        float3 d = ps[l.p1].x - ps[l.p2].x;
+        float len = length(d);
+        float3 grad = d / len;
+        float C = len - l.l0;
         float s = -C / (ps[l.p1].invm + ps[l.p2].invm + alpha);
         
         ps[l.p1].x += grad * s * ps[l.p1].invm;
@@ -102,13 +96,14 @@ void solveVolumes(uint3 id : SV_DispatchThreadID)
     int firstTet;
     for (int i = 0; i < currentTetCluster; i++)
     {
-        firstTet = tetsInCluster[i];
+        firstTet += tetsInCluster[i];
     }
     
-    if (id.x < tetsInCluster[currentTetCluster])
+    if (id.x < (uint) tetsInCluster[currentTetCluster])
     {
-        int tet = tetClusters[firstTet + id.x];
         float alpha = volumeCompliance / dt / dt;
+        
+        int tet = tetClusters[firstTet + id.x];
         VolumeConstraint v = vc[tet];
         
         float w = 0.0f;
@@ -116,48 +111,43 @@ void solveVolumes(uint3 id : SV_DispatchThreadID)
         float3 grads[4];
        
         // Gradient particle 1
-        temp[0] = ps[vc[id.x].p4].x - ps[vc[id.x].p2].x;
-        temp[1] = ps[vc[id.x].p3].x - ps[vc[id.x].p2].x;
-        grads[0] = cross(temp[0], temp[1]);
-        w += ps[vc[id.x].p1].invm * dot(grads[0], grads[0]);
+        temp[0] = ps[v.p4].x - ps[v.p2].x;
+        temp[1] = ps[v.p3].x - ps[v.p2].x;
+        grads[0] = cross(temp[0], temp[1]) / 6;
+        w += ps[v.p1].invm * dot(grads[0], grads[0]);
         
         // Gradient particle 2
-        temp[0] = ps[vc[id.x].p3].x - ps[vc[id.x].p1].x;
-        temp[1] = ps[vc[id.x].p4].x - ps[vc[id.x].p1].x;
-        grads[1] = cross(temp[0], temp[1]);
-        w += ps[vc[id.x].p2].invm * dot(grads[1], grads[1]);
+        temp[0] = ps[v.p3].x - ps[v.p1].x;
+        temp[1] = ps[v.p4].x - ps[v.p1].x;
+        grads[1] = cross(temp[0], temp[1]) / 6;
+        w += ps[v.p2].invm * dot(grads[1], grads[1]);
         
         // Gradient particle 3
-        temp[0] = ps[vc[id.x].p4].x - ps[vc[id.x].p1].x;
-        temp[1] = ps[vc[id.x].p2].x - ps[vc[id.x].p1].x;
-        grads[2] = cross(temp[0], temp[1]);
-        w += ps[vc[id.x].p3].invm * dot(grads[2], grads[2]);
+        temp[0] = ps[v.p4].x - ps[v.p1].x;
+        temp[1] = ps[v.p2].x - ps[v.p1].x;
+        grads[2] = cross(temp[0], temp[1]) / 6;
+        w += ps[v.p3].invm * dot(grads[2], grads[2]);
         
         // Gradient particle 4
-        temp[0] = ps[vc[id.x].p2].x - ps[vc[id.x].p1].x;
-        temp[1] = ps[vc[id.x].p3].x - ps[vc[id.x].p1].x;
-        grads[3] = cross(temp[0], temp[1]);
-        w += ps[vc[id.x].p4].invm * dot(grads[3], grads[3]);
-        
-        if (w == 0.0f)
-        {
-            return;
-        }
+        temp[0] = ps[v.p2].x - ps[v.p1].x;
+        temp[1] = ps[v.p3].x - ps[v.p1].x;
+        grads[3] = cross(temp[0], temp[1]) / 6;
+        w += ps[v.p4].invm * dot(grads[3], grads[3]);
         
         // Solve constraints
         float3 diffs[3];
-        diffs[0] = ps[vc[id.x].p2].x - ps[vc[id.x].p1].x;
-        diffs[1] = ps[vc[id.x].p3].x - ps[vc[id.x].p1].x;
-        diffs[2] = ps[vc[id.x].p4].x - ps[vc[id.x].p1].x;
-        float Vt6 = dot(cross(diffs[0], diffs[1]), diffs[2]);
+        diffs[0] = ps[v.p2].x - ps[v.p1].x;
+        diffs[1] = ps[v.p3].x - ps[v.p1].x;
+        diffs[2] = ps[v.p4].x - ps[v.p1].x;
+        float V = dot(cross(diffs[0], diffs[1]), diffs[2]) / 6;
         
-        float C = Vt6 - vc[id.x].V0t6;
+        float C = V - v.V0;
         float s = -C / (w + alpha);
         
-        ps[vc[id.x].p1].x += grads[0] * s * ps[vc[id.x].p1].invm;
-        ps[vc[id.x].p2].x += grads[0] * s * ps[vc[id.x].p2].invm;
-        ps[vc[id.x].p3].x += grads[0] * s * ps[vc[id.x].p3].invm;
-        ps[vc[id.x].p4].x += grads[0] * s * ps[vc[id.x].p4].invm;
+        ps[v.p1].x += grads[0] * s * ps[v.p1].invm;
+        ps[v.p2].x += grads[1] * s * ps[v.p2].invm;
+        ps[v.p3].x += grads[2] * s * ps[v.p3].invm;
+        ps[v.p4].x += grads[3] * s * ps[v.p4].invm;
     }
 }
 
@@ -165,7 +155,7 @@ void solveVolumes(uint3 id : SV_DispatchThreadID)
 [numthreads(128, 1, 1)]
 void postSolve(uint3 id : SV_DispatchThreadID)
 {
-    if (id.x < nParticles && ps[id.x].invm != 0.0f)
+    if (id.x < (uint) nParticles && ps[id.x].invm != 0.0f)
     {
         ps[id.x].v = (ps[id.x].x - ps[id.x].xm1) / dt;
     }
