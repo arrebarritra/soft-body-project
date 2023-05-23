@@ -1,7 +1,7 @@
 
 struct Particle
 {
-    float3 x, xm1, v;
+    float3 x, xm1;
     float invm;
 };
 
@@ -19,6 +19,7 @@ struct VolumeConstraint
 
 
 uniform float dt;
+uniform float dtm1;
 uniform float edgeCompliance;
 uniform float volumeCompliance;
 uniform float3 gravity;
@@ -42,16 +43,16 @@ uniform RWStructuredBuffer<Particle> ps;
 uniform StructuredBuffer<LengthConstraint> lc;
 uniform StructuredBuffer<VolumeConstraint> vc;
 
-#pragma kernel preSolve
+#pragma kernel integrate
 [numthreads(128, 1, 1)]
-void preSolve(uint3 id : SV_DispatchThreadID)
+void integrate(uint3 id : SV_DispatchThreadID)
 {
     if (id.x < (uint) nParticles && ps[id.x].invm != 0.0f)
     {
         
-        ps[id.x].v += gravity * dt;
+        float3 v = (ps[id.x].x - ps[id.x].xm1) / dtm1 + gravity * dt;
         ps[id.x].xm1 = ps[id.x].x;
-        ps[id.x].x += ps[id.x].v * dt;
+        ps[id.x].x += v * dt;
 		
         if (ps[id.x].x.y < 0.0f)
         {
@@ -148,15 +149,5 @@ void solveVolumes(uint3 id : SV_DispatchThreadID)
         ps[v.p2].x += grads[1] * s * ps[v.p2].invm;
         ps[v.p3].x += grads[2] * s * ps[v.p3].invm;
         ps[v.p4].x += grads[3] * s * ps[v.p4].invm;
-    }
-}
-
-#pragma kernel postSolve
-[numthreads(128, 1, 1)]
-void postSolve(uint3 id : SV_DispatchThreadID)
-{
-    if (id.x < (uint) nParticles && ps[id.x].invm != 0.0f)
-    {
-        ps[id.x].v = (ps[id.x].x - ps[id.x].xm1) / dt;
     }
 }

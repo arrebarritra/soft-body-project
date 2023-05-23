@@ -7,7 +7,7 @@ using QuikGraph.Algorithms.VertexColoring;
 
 public struct Particle
 {
-    public Vector3 x, xm1, v;
+    public Vector3 x, xm1;
     public float invm;
 }
 
@@ -26,17 +26,16 @@ struct VolumeConstraint
 
 public class SoftBody : MonoBehaviour
 {
-    public static int nSubSteps = 10;
+    public int nSubSteps = 10;
     public float edgeCompliance = 1;
     public float volumeCompliance = 0;
     public float gravity = 9.81f;
     public ComputeShader shader;
 
     // Kernel indices
-    static int kiPreSolve;
+    static int kiIntegrate;
     static int kiSolveEdges;
     static int kiSolveVolumes;
-    static int kiPostSolve;
 
     // Particles and  constraints
     int nParticles;
@@ -89,7 +88,7 @@ public class SoftBody : MonoBehaviour
         shader.SetInt("nTetClusters", nTetClusters);
 
         // Create buffers
-        particleBuffer = new ComputeBuffer(nParticles, (3 * 3 + 1) * sizeof(float));
+        particleBuffer = new ComputeBuffer(nParticles, (2 * 3 + 1) * sizeof(float));
         lcBuffer = new ComputeBuffer(nEdges, 2 * sizeof(int) + sizeof(float));
         vcBuffer = new ComputeBuffer(nTets, 4 * sizeof(int) + sizeof(float));
         eicBuffer = new ComputeBuffer(nEdgeClusters, sizeof(int));
@@ -107,8 +106,8 @@ public class SoftBody : MonoBehaviour
         tcsBuffer.SetData(tetClusters);
 
         // Bind buffers
-        kiPreSolve = shader.FindKernel("preSolve");
-        shader.SetBuffer(kiPreSolve, "ps", particleBuffer);
+        kiIntegrate = shader.FindKernel("integrate");
+        shader.SetBuffer(kiIntegrate, "ps", particleBuffer);
 
         kiSolveEdges = shader.FindKernel("solveEdges");
         shader.SetBuffer(kiSolveEdges, "ps", particleBuffer);
@@ -121,9 +120,6 @@ public class SoftBody : MonoBehaviour
         shader.SetBuffer(kiSolveVolumes, "vc", vcBuffer);
         shader.SetBuffer(kiSolveVolumes, "tetsInCluster", ticBuffer);
         shader.SetBuffer(kiSolveVolumes, "tetClusters", tcsBuffer);
-
-        kiPostSolve = shader.FindKernel("postSolve");
-        shader.SetBuffer(kiPostSolve, "ps", particleBuffer);
     }
 
     void FixedUpdate()
@@ -136,7 +132,7 @@ public class SoftBody : MonoBehaviour
         for (int i = 0; i < nSubSteps; i++)
         {
             // Dispatch with one thread per particle/cluster
-            shader.Dispatch(kiPreSolve, (nParticles + 127) / 128, 1, 1);
+            shader.Dispatch(kiIntegrate, (nParticles + 127) / 128, 1, 1);
 
             for (int j = 0; j < nEdgeClusters; j++)
             {
@@ -148,10 +144,8 @@ public class SoftBody : MonoBehaviour
                 shader.SetInt("currentTetCluster", j);
                 shader.Dispatch(kiSolveVolumes, (tetsInCluster[j] + 63) / 64, 1, 1);
             }
-
-            shader.Dispatch(kiPostSolve, (nParticles + 127) / 128, 1, 1);
+            shader.SetFloat("dtm1", sdt);
         }
-
         particleBuffer.GetData(particles);
         UpdateMeshVertices();
     }
@@ -188,8 +182,7 @@ public class SoftBody : MonoBehaviour
             particles[i] = new Particle
             {
                 x = new Vector3(tm.vertices[3 * i], tm.vertices[3 * i + 1], tm.vertices[3 * i + 2]),
-                xm1 = new Vector3(tm.vertices[3 * i], tm.vertices[3 * i + 1], tm.vertices[3 * i + 2]),
-                v = Vector3.zero
+                xm1 = new Vector3(tm.vertices[3 * i], tm.vertices[3 * i + 1], tm.vertices[3 * i + 2])
             };
         }
     }
