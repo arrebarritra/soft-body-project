@@ -44,7 +44,7 @@ uniform StructuredBuffer<LengthConstraint> lc;
 uniform StructuredBuffer<VolumeConstraint> vc;
 
 #pragma kernel integrate
-[numthreads(128, 1, 1)]
+[numthreads(64, 1, 1)]
 void integrate(uint3 id : SV_DispatchThreadID)
 {
     if (id.x < (uint) nParticles && ps[id.x].invm != 0.0f)

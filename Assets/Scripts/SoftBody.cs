@@ -132,7 +132,7 @@ public class SoftBody : MonoBehaviour
         for (int i = 0; i < nSubSteps; i++)
         {
             // Dispatch with one thread per particle/cluster
-            shader.Dispatch(kiIntegrate, (nParticles + 127) / 128, 1, 1);
+            shader.Dispatch(kiIntegrate, (nParticles + 63) / 64, 1, 1);
 
             for (int j = 0; j < nEdgeClusters; j++)
             {
