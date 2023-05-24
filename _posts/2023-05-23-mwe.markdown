@@ -7,13 +7,17 @@ categories: jekyll update
 
 I have finally managed to put together a semi-working simulation of the soft body. Here it is in action!
 
-![Wiggling bunny](/soft-body-project/img/wiggling_bunny.gif)
+<p style="text-align:center;">
+    <img src="/soft-body-project/img/wiggling_bunny.gif" alt="Wiggling bunny" width="50%">
+</p>
 
 In the last post I mentioned that a difficulty will be to parallelise the solving of constraints, as particles may be part of multiple constraints. I found a very interesting (maybe in hindsight obvious) solution to this in a [paper by Fratarcangeli and Pellacini](https://ep.liu.se/ecp/106/004/ecp14106004.pdf). It involves clustering the constraints so that the clusters do not contain constraints with overlapping particles using vertex coloring. I quite enjoyed implementing it and applying some of my theoretical computer science knowledge. The clustering is done at initialisation so only has to be computed once. This is then sent to the compute shader so it can choose the correct cluster in each dispatch.
 
 As hinted in the start of the post, the system still has some probems, which we can see below:
 
-![Bouncing bunny](/soft-body-project/img/bouncing_bunny.gif)
+<p style="text-align:center;">
+    <img src="/soft-body-project/img/bouncing_bunny.gif" alt="Bouncing bunny" width="50%">
+</p>
 
 Clearly, energy is not conserved and the bunny bounces too much. I have played around with parameters and it does not solve the problem. Additionally, some parameters seem to break the simulation, something which does not happen with [Müllers demo](https://matthias-research.github.io/pages/tenMinutePhysics/10-softBodies.html).
 

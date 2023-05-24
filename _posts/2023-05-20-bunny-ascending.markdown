@@ -13,4 +13,6 @@ I have also had to learn a lot about compute shaders, which I've found to be a v
 
 The actual progress I've made on the project so far is designing a robust system around the soft body simulation, although the simulation itself is not yet implemented. I've set up all structs related to the simulation, filled compute buffers with initial particles positions and computed constraints that needs to be passed to the compute shader, made sure the threading works and set up the kernels in the shaders for XPBD. I've also made a class for the tetrahedral mesh to initialise data for the simulation and display the surface mesh. Finally, I did a little something to test the compute shader works:
 
-![Bunny ascending](/soft-body-project/img/bunny_ascending.gif)
+<p style="text-align:center;">
+    <img src="/soft-body-project/img/bunny_ascending.gif" alt="Bunny ascending" width="50%">
+</p>
