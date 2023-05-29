@@ -51,42 +51,42 @@ public class SoftBodySceneController : MonoBehaviour
 
     void LoadScene(string scene)
     {
-        using (TextReader reader = File.OpenText("Assets/SoftBodyScenes/" + scene + ".txt"))
+        string[] scenetext = Resources.Load<TextAsset>("SoftBodyScenes/" + scene).text.Split(new string[] { "\r\n" }, System.StringSplitOptions.None);
+        int currentLine = 0;
+
+        nCubes = int.Parse(scenetext[currentLine++]);
+        shader.SetInt("nCubes", nCubes);
+        cubes = new Cube[nCubes];
+        cubeObjects = new GameObject[nCubes];
+        potentialCollisions = new int[nCubes];
+
+        string meshfile = scenetext[currentLine++];
+        Matrix4x4 transform = new Matrix4x4();
+        string[] matVals = scenetext[currentLine++].Split(null);
+        for (int j = 0; j < 16; j++)
         {
-            nCubes = int.Parse(reader.ReadLine());
-            shader.SetInt("nCubes", nCubes);
-            cubes = new Cube[nCubes];
-            cubeObjects = new GameObject[nCubes];
-            potentialCollisions = new int[nCubes];
+            transform[j] = float.Parse(matVals[j]);
+        }
+        Material mat = Resources.Load<Material>("Materials/" + scenetext[currentLine++]);
+        float edgeCompliance = float.Parse(scenetext[currentLine++]);
+        float volumeCompliance = float.Parse(scenetext[currentLine++]);
 
-            string meshfile = "Assets/TetMeshes/" + reader.ReadLine() + ".txt";
-            Matrix4x4 transform = new Matrix4x4();
-            string[] matVals = reader.ReadLine().Split(new char[0]);
-            for (int j = 0; j < 16; j++)
+        AddSoftBody(meshfile, transform, mat, edgeCompliance, volumeCompliance);
+        UpdateComplianceText();
+
+        for (int i = 0; i < nCubes; i++)
+        {
+            string[] minString = scenetext[currentLine++].Split(null);
+            string[] maxString = scenetext[currentLine++].Split(null);
+            Vector3 min = Vector3.zero;
+            Vector3 max = Vector3.zero;
+            for (int j = 0; j < 3; j++)
             {
-                transform[j] = float.Parse(matVals[j]);
+                min[j] = float.Parse(minString[j]);
+                max[j] = float.Parse(maxString[j]);
             }
-            Material mat = Resources.Load<Material>("Materials/" + reader.ReadLine());
-            float edgeCompliance = float.Parse(reader.ReadLine());
-            float volumeCompliance = float.Parse(reader.ReadLine());
 
-            AddSoftBody(meshfile, transform, mat, edgeCompliance, volumeCompliance);
-            UpdateComplianceText();
-
-            for (int i = 0; i < nCubes; i++)
-            {
-                string[] minString = reader.ReadLine().Split(null);
-                string[] maxString = reader.ReadLine().Split(null);
-                Vector3 min = Vector3.zero;
-                Vector3 max = Vector3.zero;
-                for (int j = 0; j < 3; j++)
-                {
-                    min[j] = float.Parse(minString[j]);
-                    max[j] = float.Parse(maxString[j]);
-                }
-
-                AddCube(i, min, max);
-            }
+            AddCube(i, min, max);
         }
 
         cubesBuffer = new ComputeBuffer(nCubes, 2 * 3 * sizeof(float));
@@ -158,12 +158,10 @@ public class SoftBodySceneController : MonoBehaviour
 
     void FillDropdown()
     {
-        string[] scenes = Directory.GetFiles("Assets/SoftBodyScenes", "*.txt");
+        string[] scenes = { "plane", "platforms", "stairs", "squeeze" };
         foreach (string scene in scenes)
         {
-            sceneDropdown.options.Add(new Dropdown.OptionData(
-                scene.Replace("Assets/SoftBodyScenes", "")
-                     .Replace(".txt", "").Replace("/", "").Replace("\\", "")));
+            sceneDropdown.options.Add(new Dropdown.OptionData(scene));
         }
         sceneDropdown.captionText.text = sceneDropdown.options[0].text;
     }

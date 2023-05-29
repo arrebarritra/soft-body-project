@@ -16,41 +16,42 @@ public class TetMesh
 
     public void LoadFromFile(string file)
     {
-        using(TextReader reader = File.OpenText(file))
+        string[] meshtext = Resources.Load<TextAsset>("TetMeshes/" + file).text.Split(new string[] { "\r\n" }, System.StringSplitOptions.None);
+        int currentLine = 0;
+
+        nVertices = int.Parse(meshtext[currentLine++]);
+        nTets = int.Parse(meshtext[currentLine++]);
+        nEdges = int.Parse(meshtext[currentLine++]);
+        nTriangles = int.Parse(meshtext[currentLine++]);
+
+        vertices = new float[nVertices * 3];
+        for (int i = 0; i < nVertices * 3; i++)
         {
-            nVertices = int.Parse(reader.ReadLine());
-            nTets = int.Parse(reader.ReadLine());
-            nEdges = int.Parse(reader.ReadLine());
-            nTriangles = int.Parse(reader.ReadLine());
-
-            vertices = new float[nVertices * 3];
-            for(int  i = 0; i < nVertices * 3; i++)
-            {
-                vertices[i] = float.Parse(reader.ReadLine());
-            }
-
-            tetIndices = new int[nTets * 4];
-            for (int i = 0; i < nTets * 4; i++)
-            {
-                tetIndices[i] = int.Parse(reader.ReadLine());
-            }
-
-            edgeIndices = new int[nEdges * 2];
-            for (int i = 0; i < nEdges * 2; i++)
-            {
-                edgeIndices[i] = int.Parse(reader.ReadLine());
-            }
-
-            surfaceTriangleIndices = new int[nTriangles * 3];
-            for (int i = 0; i < nTriangles * 3; i++)
-            {
-                surfaceTriangleIndices[i] = int.Parse(reader.ReadLine());
-            }
+            vertices[i] = float.Parse(meshtext[currentLine++]);
         }
+
+        tetIndices = new int[nTets * 4];
+        for (int i = 0; i < nTets * 4; i++)
+        {
+            tetIndices[i] = int.Parse(meshtext[currentLine++]);
+        }
+
+        edgeIndices = new int[nEdges * 2];
+        for (int i = 0; i < nEdges * 2; i++)
+        {
+            edgeIndices[i] = int.Parse(meshtext[currentLine++]);
+        }
+
+        surfaceTriangleIndices = new int[nTriangles * 3];
+        for (int i = 0; i < nTriangles * 3; i++)
+        {
+            surfaceTriangleIndices[i] = int.Parse(meshtext[currentLine++]);
+        }
+
     }
 
     public void LoadTestModel()
     {
-        LoadFromFile("Assets/TetMeshes/Bunny.txt");
+        LoadFromFile("Bunny");
     }
 }
