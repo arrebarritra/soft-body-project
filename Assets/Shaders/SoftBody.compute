@@ -17,6 +17,11 @@ struct VolumeConstraint
     float V0;
 };
 
+struct Cube
+{
+    float3 min, max;
+};
+
 
 uniform float dt;
 uniform float dtm1;
@@ -43,21 +48,48 @@ uniform RWStructuredBuffer<Particle> ps;
 uniform StructuredBuffer<LengthConstraint> lc;
 uniform StructuredBuffer<VolumeConstraint> vc;
 
+uniform int nCubes;
+uniform StructuredBuffer<Cube> sceneCubes;
+uniform StructuredBuffer<int> potentialCollisions;
+
 #pragma kernel integrate
 [numthreads(64, 1, 1)]
 void integrate(uint3 id : SV_DispatchThreadID)
 {
     if (id.x < (uint) nParticles && ps[id.x].invm != 0.0f)
     {
-        
         float3 v = (ps[id.x].x - ps[id.x].xm1) / dtm1 + gravity * dt;
         ps[id.x].xm1 = ps[id.x].x;
         ps[id.x].x += v * dt;
-		
-        if (ps[id.x].x.y < 0.0f)
+    }
+}
+
+#pragma kernel solveCollisions
+[numthreads(64, 1, 1)]
+void solveCollisions(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x < (uint) nParticles)
+    {
+        for (int i = 0; i < nCubes; i++)
         {
-            ps[id.x].x = ps[id.x].xm1;
-            ps[id.x].x.y = 0.0f;
+            if (!potentialCollisions[i])
+                continue;
+            
+            float tmin, tmax;
+            Cube cube = sceneCubes[i];
+            bool inCube = all(ps[id.x].x > cube.min) && all(ps[id.x].x < cube.max);
+            
+            float3 minDists = ps[id.x].x - cube.min;
+            float3 maxDists = cube.max - ps[id.x].x;
+            bool3 minDir = float3(all(minDists.x <= minDists) && all(minDists.x < maxDists),
+                                   all(minDists.y <= minDists) && all(minDists.y < maxDists),
+                                   all(minDists.z <= minDists) && all(minDists.z < maxDists));
+            bool3 maxDir = float3(all(maxDists.x <= maxDists) && all(maxDists.x <= minDists),
+                                   all(maxDists.y <= maxDists) && all(maxDists.y <= minDists),
+                                   all(maxDists.z <= maxDists) && all(maxDists.z <= minDists));
+            float3 qs = ps[id.x].xm1 * !(minDir || maxDir) + cube.min * minDir + cube.max * maxDir;
+            
+            ps[id.x].x = !inCube * ps[id.x].x + inCube * qs;
         }
     }
 }

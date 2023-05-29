@@ -26,14 +26,20 @@ struct VolumeConstraint
 
 public class SoftBody : MonoBehaviour
 {
-    public int nSubSteps = 10;
-    public float edgeCompliance = 1;
-    public float volumeCompliance = 0;
-    public float gravity = 9.81f;
+    public int nSubSteps;
+    public float edgeCompliance;
+    public float volumeCompliance;
+    public float gravity;
     public ComputeShader shader;
+    public Material mat;
+
+    // Info for instantioan
+    public string meshfile;
+    public Matrix4x4 initTransform;
 
     // Kernel indices
     static int kiIntegrate;
+    static int kiSolveCubeCollisions;
     static int kiSolveEdges;
     static int kiSolveVolumes;
 
@@ -67,11 +73,9 @@ public class SoftBody : MonoBehaviour
     ComputeBuffer tcsBuffer;
 
     // Surface mesh for display
-    Mesh mesh;
-    MeshFilter mf;
+    public Mesh mesh;
 
-
-    void Start()
+    void Awake()
     {
         // Initialise soft body data from tetrahedral mesh
         InitializeDataFromTetMesh();
@@ -109,6 +113,9 @@ public class SoftBody : MonoBehaviour
         kiIntegrate = shader.FindKernel("integrate");
         shader.SetBuffer(kiIntegrate, "ps", particleBuffer);
 
+        kiSolveCubeCollisions = shader.FindKernel("solveCollisions");
+        shader.SetBuffer(kiSolveCubeCollisions, "ps", particleBuffer);
+
         kiSolveEdges = shader.FindKernel("solveEdges");
         shader.SetBuffer(kiSolveEdges, "ps", particleBuffer);
         shader.SetBuffer(kiSolveEdges, "lc", lcBuffer);
@@ -122,6 +129,11 @@ public class SoftBody : MonoBehaviour
         shader.SetBuffer(kiSolveVolumes, "tetClusters", tcsBuffer);
     }
 
+    void Update()
+    {
+        Graphics.DrawMesh(mesh, Matrix4x4.identity, mat, 0);
+    }
+
     void FixedUpdate()
     {
         float sdt = Time.fixedDeltaTime / nSubSteps;
@@ -133,6 +145,7 @@ public class SoftBody : MonoBehaviour
         {
             // Dispatch with one thread per particle/cluster
             shader.Dispatch(kiIntegrate, (nParticles + 63) / 64, 1, 1);
+            shader.Dispatch(kiSolveCubeCollisions, (nParticles + 63) / 64, 1, 1);
 
             for (int j = 0; j < nEdgeClusters; j++)
             {
@@ -164,7 +177,7 @@ public class SoftBody : MonoBehaviour
     void InitializeDataFromTetMesh()
     {
         TetMesh tm = new TetMesh();
-        tm.LoadTestModel();
+        tm.LoadFromFile(meshfile);
 
         InitializeParticles(tm);
         InitializeLengthConstraints(tm);
@@ -179,10 +192,11 @@ public class SoftBody : MonoBehaviour
         for (int i = 0; i < nParticles; i++)
         {
             // Set particle positions according to tet mesh
+            Vector3 vec = new Vector3(tm.vertices[3 * i], tm.vertices[3 * i + 1], tm.vertices[3 * i + 2]);
             particles[i] = new Particle
             {
-                x = new Vector3(tm.vertices[3 * i], tm.vertices[3 * i + 1], tm.vertices[3 * i + 2]),
-                xm1 = new Vector3(tm.vertices[3 * i], tm.vertices[3 * i + 1], tm.vertices[3 * i + 2])
+                x = initTransform.MultiplyPoint(vec),
+                xm1 = initTransform.MultiplyPoint(vec)
             };
         }
     }
@@ -201,8 +215,8 @@ public class SoftBody : MonoBehaviour
             };
 
             // Calculate edge length
-            Vector3 e1 = new Vector3(tm.vertices[3 * lc[i].p1], tm.vertices[3 * lc[i].p1 + 1], tm.vertices[3 * lc[i].p1 + 2]);
-            Vector3 e2 = new Vector3(tm.vertices[3 * lc[i].p2], tm.vertices[3 * lc[i].p2 + 1], tm.vertices[3 * lc[i].p2 + 2]);
+            Vector3 e1 = particles[lc[i].p1].x;
+            Vector3 e2 = particles[lc[i].p2].x;
             lc[i].l0 = (e2 - e1).magnitude;
         }
 
@@ -225,10 +239,10 @@ public class SoftBody : MonoBehaviour
             };
 
             // Calculate volume
-            Vector3 e1 = new Vector3(tm.vertices[3 * vc[i].p1], tm.vertices[3 * vc[i].p1 + 1], tm.vertices[3 * vc[i].p1 + 2]);
-            Vector3 e2 = new Vector3(tm.vertices[3 * vc[i].p2], tm.vertices[3 * vc[i].p2 + 1], tm.vertices[3 * vc[i].p2 + 2]);
-            Vector3 e3 = new Vector3(tm.vertices[3 * vc[i].p3], tm.vertices[3 * vc[i].p3 + 1], tm.vertices[3 * vc[i].p3 + 2]);
-            Vector3 e4 = new Vector3(tm.vertices[3 * vc[i].p4], tm.vertices[3 * vc[i].p4 + 1], tm.vertices[3 * vc[i].p4 + 2]);
+            Vector3 e1 = particles[vc[i].p1].x;
+            Vector3 e2 = particles[vc[i].p2].x;
+            Vector3 e3 = particles[vc[i].p3].x;
+            Vector3 e4 = particles[vc[i].p4].x;
 
             Vector3[] temp = new Vector3[4];
             temp[0] = e2 - e1;
@@ -263,9 +277,6 @@ public class SoftBody : MonoBehaviour
             vertices = vertices,
             triangles = tm.surfaceTriangleIndices
         };
-
-        mf = GetComponent<MeshFilter>();
-        mf.mesh = mesh;
     }
 
     void UpdateMeshVertices()
@@ -274,8 +285,9 @@ public class SoftBody : MonoBehaviour
         {
             vertices[i] = particles[i].x;
         }
-        mesh.vertices = vertices;
+        mesh.SetVertices(vertices);
         mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
     }
 
     void CreateEdgeClusters()
